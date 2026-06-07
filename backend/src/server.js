@@ -1,9 +1,11 @@
 const express = require("express");
+const path = require("path");
 const dotenv = require("dotenv");
 const connectDB = require("./config/db");
 const authRoutes = require("./routes/authRoutes");
 const protect = require("./middleware/authMiddleware");
 const documentRoutes = require("./routes/documentRoutes");
+const cors = require("cors");
 
 dotenv.config();
 
@@ -11,7 +13,14 @@ connectDB();
 
 const app = express();
 
+const corsOptions = {
+  origin: "http://localhost:5173",
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+};
+
+app.use(cors(corsOptions));
 app.use(express.json());
+app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
 
 app.use("/api/auth", authRoutes);
 app.use("/api/docs", documentRoutes);
