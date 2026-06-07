@@ -6,6 +6,7 @@ const authRoutes = require("./routes/authRoutes");
 const protect = require("./middleware/authMiddleware");
 const documentRoutes = require("./routes/documentRoutes");
 const cors = require("cors");
+const signatureRoutes = require("./routes/signatureRoutes");
 
 dotenv.config();
 
@@ -24,6 +25,7 @@ app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
 
 app.use("/api/auth", authRoutes);
 app.use("/api/docs", documentRoutes);
+app.use("/api/signatures", signatureRoutes);
 
 app.get("/api/protected", protect, (req, res) => {
   res.json({

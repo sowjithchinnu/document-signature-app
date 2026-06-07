@@ -41,8 +41,9 @@ function Dashboard() {
           <h3>{doc.filename}</h3>
 
           <PDFPreview
-            fileUrl={`http://localhost:3001/${doc.filepath}`}
-          />
+  fileUrl={`http://localhost:3001/${doc.filepath}`}
+  documentId={doc._id}
+/>
         </div>
       ))}
     </div>
