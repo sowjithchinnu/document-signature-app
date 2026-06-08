@@ -24,6 +24,15 @@ const signatureSchema = new mongoose.Schema(
       required: true,
     },
 
+    // Normalized coordinates (0..1) to support responsive rendering
+    xPct: {
+      type: Number,
+    },
+
+    yPct: {
+      type: Number,
+    },
+
     page: {
       type: Number,
       default: 1,
