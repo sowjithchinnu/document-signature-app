@@ -1,6 +1,9 @@
 import { useEffect, useState } from "react";
+import { Routes, Route } from "react-router-dom";
+
 import Dashboard from "./pages/Dashboard";
 import Login from "./pages/Login";
+import PublicSign from "./pages/PublicSign";
 
 function App() {
   const [token, setToken] = useState(localStorage.getItem("token"));
@@ -23,13 +26,26 @@ function App() {
   };
 
   return (
-    <div>
-      {token ? (
-        <Dashboard token={token} onLogout={handleLogout} />
-      ) : (
-        <Login onLogin={handleLogin} />
-      )}
-    </div>
+    <Routes>
+      <Route
+        path="/sign/:token"
+        element={<PublicSign />}
+      />
+
+      <Route
+        path="/"
+        element={
+          token ? (
+            <Dashboard
+              token={token}
+              onLogout={handleLogout}
+            />
+          ) : (
+            <Login onLogin={handleLogin} />
+          )
+        }
+      />
+    </Routes>
   );
 }
 
