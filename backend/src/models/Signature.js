@@ -23,7 +23,14 @@ const signatureSchema = new mongoose.Schema(
       type: Number,
       required: true,
     },
+    
+    renderedWidth: {
+  type: Number,
+},
 
+renderedHeight: {
+  type: Number,
+},
     // Normalized coordinates (0..1) to support responsive rendering
     xPct: {
       type: Number,

@@ -2,7 +2,7 @@ const Signature = require("../models/Signature");
 
 const saveSignature = async (req, res) => {
   try {
-    const { documentId, x, y, page, xPct, yPct } = req.body;
+    const { documentId, x, y, page, xPct, yPct, renderedWidth, renderedHeight } = req.body;
 
     const createData = {
       documentId,
@@ -11,6 +11,10 @@ const saveSignature = async (req, res) => {
       y,
       page,
     };
+
+    // include rendered dimensions for accurate coordinate conversion
+    if (typeof renderedWidth === "number") createData.renderedWidth = renderedWidth;
+    if (typeof renderedHeight === "number") createData.renderedHeight = renderedHeight;
 
     // include normalized coords when provided
     if (typeof xPct === "number") createData.xPct = xPct;
