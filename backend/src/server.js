@@ -8,6 +8,7 @@ const documentRoutes = require("./routes/documentRoutes");
 const cors = require("cors");
 const signatureRoutes = require("./routes/signatureRoutes");
 const pdfRoutes = require("./routes/pdfRoutes");
+const auditRoutes = require("./routes/auditRoutes");
 
 dotenv.config();
 
@@ -35,7 +36,7 @@ app.use(cors(corsOptions));
 app.options(/^.*$/, cors(corsOptions));
 app.use(express.json());
 app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
-
+app.use("/api/audit", auditRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/docs", documentRoutes);
 app.use("/api/signatures", signatureRoutes);

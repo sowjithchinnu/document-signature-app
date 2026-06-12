@@ -1,13 +1,20 @@
 const fs = require("fs");
 const path = require("path");
 const { PDFDocument, rgb } = require("pdf-lib");
-
+const createAuditLog = require("../utils/createAuditLog");
 const Document = require("../models/Document");
 const Signature = require("../models/Signature");
 
 const generateSignedPDF = async (req, res) => {
   try {
+    console.log("=== generateSignedPDF started ===");
     const { documentId } = req.params;
+
+    // Diagnostic: confirm handler invocation and user presence
+    console.log("generateSignedPDF called", {
+      params: req.params,
+      user: req.user || null,
+    });
 
     // Find document
     const document = await Document.findById(documentId);
@@ -17,6 +24,8 @@ const generateSignedPDF = async (req, res) => {
         message: "Document not found",
       });
     }
+
+    console.log("Document found:", document._id);
 
     // Find signatures and get ONLY the latest one
     const signatures = await Signature.find({
@@ -30,6 +39,8 @@ const generateSignedPDF = async (req, res) => {
     }
 
     const signature = signatures[0];
+
+    console.log("Latest signature found:", signature?._id);
 
     // Load original PDF
     const pdfPath = path.join(
@@ -99,18 +110,37 @@ const generateSignedPDF = async (req, res) => {
     }
 
     // Save signed PDF
+    console.log("Reached before pdfDoc.save()");
     const signedPdfBytes = await pdfDoc.save();
     const outputFilename = `signed-${document.filename}`;
     const outputPath = path.join(signedDir, outputFilename);
 
     fs.writeFileSync(outputPath, signedPdfBytes);
+    console.log("Reached after writeFileSync()");
+    console.log("PDF saved successfully");
+
+    console.log("About to create audit log", { documentId, userId: req.user && req.user.id, ip: req.ip });
+    console.log("Attempting to create audit log");
+    try {
+      const auditResult = await createAuditLog({
+        documentId,
+        userId: req.user && req.user.id,
+        action: "Generated signed PDF",
+        ipAddress: req.ip,
+      });
+
+      console.log("Audit log created", { auditResult });
+      console.log("Audit log created successfully");
+    } catch (err) {
+      console.error("createAuditLog threw an error:", err);
+    }
 
     return res.status(200).json({
       message: "Signed PDF generated successfully",
       downloadUrl: `/uploads/signed/${outputFilename}`,
     });
   } catch (error) {
-    console.error(error);
+    console.error("generateSignedPDF error:", error);
 
     return res.status(500).json({
       message: error.message,

@@ -167,6 +167,34 @@ function PDFPreview({ fileUrl, documentId }) {
     }
   };
 
+  const generateSignedPDF = async () => {
+    try {
+      const res = await API.get(
+        `/pdf/generate/${documentId}`
+      );
+
+      const downloadUrl = res.data?.downloadUrl;
+
+      if (!downloadUrl) {
+        throw new Error(
+          "No download URL returned from generate endpoint"
+        );
+      }
+
+      const fullUrl = downloadUrl.startsWith("http")
+        ? downloadUrl
+        : `http://localhost:3001${downloadUrl}`;
+
+      window.open(fullUrl, "_blank");
+    } catch (error) {
+      console.error(
+        "Failed to generate signed PDF:",
+        error
+      );
+      alert("Unable to generate signed PDF.");
+    }
+  };
+
   return (
     <div>
       <div
@@ -220,9 +248,12 @@ function PDFPreview({ fileUrl, documentId }) {
         </div>
       </div>
 
-      <div style={{ marginTop: 8 }}>
+      <div style={{ marginTop: 8, display: "flex", gap: "10px" }}>
         <button onClick={saveSignature}>
           Save Signature Position
+        </button>
+        <button onClick={generateSignedPDF}>
+          Generate Signed PDF
         </button>
       </div>
     </div>

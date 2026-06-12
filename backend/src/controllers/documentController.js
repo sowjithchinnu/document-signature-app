@@ -1,5 +1,5 @@
 const Document = require("../models/Document");
-
+const createAuditLog = require("../utils/createAuditLog");
 // Upload Document
 const uploadDocument = async (req, res) => {
   try {
@@ -14,6 +14,13 @@ const uploadDocument = async (req, res) => {
       filepath: req.file.path,
       uploadedBy: req.user.id,
     });
+
+    await createAuditLog({
+  documentId: document._id,
+  userId: req.user.id,
+  action: "Uploaded document",
+  ipAddress: req.ip,
+});
 
     res.status(201).json({
       message: "Document uploaded successfully",

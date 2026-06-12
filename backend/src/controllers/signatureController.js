@@ -1,7 +1,7 @@
 const Signature = require("../models/Signature");
 const Document = require("../models/Document");
 const jwt = require("jsonwebtoken");
-
+const createAuditLog = require("../utils/createAuditLog");
 // Save signature position
 const saveSignature = async (req, res) => {
   try {
@@ -43,6 +43,13 @@ const saveSignature = async (req, res) => {
     }
 
     const signature = await Signature.create(createData);
+
+    await createAuditLog({
+  documentId,
+  userId: req.user.id,
+  action: "Saved signature position",
+  ipAddress: req.ip,
+});
 
     res.status(201).json(signature);
   } catch (error) {
