@@ -1,3 +1,4 @@
+const jwt = require("jsonwebtoken");
 const Signature = require("../models/Signature");
 
 const saveSignature = async (req, res) => {
@@ -43,8 +44,31 @@ const getSignaturesByDocument = async (req, res) => {
     });
   }
 };
+const generatePublicLink = async (req, res) => {
+  try {
+    const { documentId } = req.params;
+
+    const token = jwt.sign(
+      { documentId },
+      process.env.JWT_SECRET,
+      { expiresIn: "7d" }
+    );
+
+    const publicUrl = `http://localhost:5173/sign/${token}`;
+
+    res.status(200).json({
+      message: "Public signature link generated",
+      publicUrl,
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: error.message,
+    });
+  }
+};
 
 module.exports = {
   saveSignature,
   getSignaturesByDocument,
+  generatePublicLink,
 };

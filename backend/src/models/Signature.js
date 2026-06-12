@@ -2,6 +2,13 @@ const mongoose = require("mongoose");
 
 const signatureSchema = new mongoose.Schema(
   {
+    token: {
+  type: String,
+},
+    expiresAt: {
+  type: Date,
+},
+
     documentId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Document",
