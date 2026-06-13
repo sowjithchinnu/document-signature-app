@@ -33,13 +33,27 @@ const saveSignature = async (req, res) => {
       createData.renderedHeight = renderedHeight;
     }
 
-    // Store normalized coordinates
+    // Store normalized coordinates; compute them if the frontend did not.
     if (typeof xPct === "number") {
       createData.xPct = xPct;
     }
 
     if (typeof yPct === "number") {
       createData.yPct = yPct;
+    }
+
+    if (
+      typeof createData.renderedWidth === "number" &&
+      createData.renderedWidth > 0
+    ) {
+      createData.xPct = createData.x / createData.renderedWidth;
+    }
+
+    if (
+      typeof createData.renderedHeight === "number" &&
+      createData.renderedHeight > 0
+    ) {
+      createData.yPct = createData.y / createData.renderedHeight;
     }
 
     const signature = await Signature.create(createData);
@@ -168,6 +182,8 @@ const updateSignatureStatus = async (req, res) => {
     const { signatureId } = req.params;
     const { status, rejectionReason } = req.body;
 
+    console.log("updateSignatureStatus called", { signatureId, status, rejectionReason });
+
     if (!["Signed", "Rejected"].includes(status)) {
       return res.status(400).json({
         message: "Invalid status",
@@ -192,6 +208,8 @@ const updateSignatureStatus = async (req, res) => {
     }
 
     await signature.save();
+
+    console.log("signature saved with new status", signature._id.toString(), signature.status);
 
     return res.status(200).json({
       message: `Signature ${status.toLowerCase()} successfully`,

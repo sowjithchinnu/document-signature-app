@@ -152,6 +152,12 @@ function PDFPreview({ fileUrl, documentId }) {
         page: 1,
         renderedWidth: pageDimensions.width,
         renderedHeight: pageDimensions.height,
+        xPct: pageDimensions.width
+          ? dragPos.x / pageDimensions.width
+          : undefined,
+        yPct: pageDimensions.height
+          ? dragPos.y / pageDimensions.height
+          : undefined,
       });
 
       alert("Signature position saved!");
