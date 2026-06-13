@@ -163,10 +163,52 @@ const sendSignatureEmail = async (req, res) => {
   }
 };
 
+const updateSignatureStatus = async (req, res) => {
+  try {
+    const { signatureId } = req.params;
+    const { status, rejectionReason } = req.body;
+
+    if (!["Signed", "Rejected"].includes(status)) {
+      return res.status(400).json({
+        message: "Invalid status",
+      });
+    }
+
+    const signature = await Signature.findById(signatureId);
+
+    if (!signature) {
+      return res.status(404).json({
+        message: "Signature not found",
+      });
+    }
+
+    signature.status = status;
+
+    if (status === "Rejected") {
+      signature.rejectionReason =
+        rejectionReason || "No reason provided";
+    } else {
+      signature.rejectionReason = "";
+    }
+
+    await signature.save();
+
+    return res.status(200).json({
+      message: `Signature ${status.toLowerCase()} successfully`,
+      signature,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      message: error.message,
+    });
+  }
+};
+
 module.exports = {
   saveSignature,
   getSignaturesByDocument,
   generatePublicLink,
   getPublicDocument,
   sendSignatureEmail,
+  updateSignatureStatus,
 };

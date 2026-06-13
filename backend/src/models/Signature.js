@@ -54,8 +54,13 @@ renderedHeight: {
 
     status: {
       type: String,
-      enum: ["pending", "signed"],
-      default: "pending",
+      enum: ["Pending", "Signed", "Rejected"],
+      default: "Pending",
+    },
+
+    rejectionReason: {
+      type: String,
+      default: "",
     },
   },
   {

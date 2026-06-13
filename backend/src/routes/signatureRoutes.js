@@ -10,6 +10,7 @@ const {
   generatePublicLink,
   getPublicDocument,
   sendSignatureEmail,
+  updateSignatureStatus,
 } = require("../controllers/signatureController");
 
 router.post("/", protect, saveSignature);
@@ -35,6 +36,12 @@ router.post(
 router.get(
   "/public/:token",
   getPublicDocument
+);
+
+router.put(
+  "/status/:signatureId",
+  protect,
+  updateSignatureStatus
 );
 
 module.exports = router;
