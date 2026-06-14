@@ -12,7 +12,7 @@ pdfjs.GlobalWorkerOptions.workerSrc = new URL(
 
 const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
 
-function PDFPreview({ fileUrl, documentId }) {
+function PDFPreview({ fileUrl, documentId, previewWidth = 250, hideActions = false, saveButtonId, generateButtonId }) {
   const [dragPos, setDragPos] = useState({ x: 100, y: 100 });
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
@@ -38,9 +38,7 @@ function PDFPreview({ fileUrl, documentId }) {
 
         const latestSignature = signatures
           .slice()
-          .sort(
-            (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
-          )[0];
+          .sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt))[0];
 
         const x = Number(latestSignature.x);
         const y = Number(latestSignature.y);
@@ -209,19 +207,15 @@ function PDFPreview({ fileUrl, documentId }) {
           position: "relative",
           display: "inline-block",
         }}
-        onMouseLeave={() =>
-          isDragging && setIsDragging(false)
-        }
       >
         <Document file={fileUrl}>
           <Page
             pageNumber={1}
-            width={250}
+            width={previewWidth}
             onLoadSuccess={(page) => {
-              const viewport =
-                page.getViewport({
-                  scale: 250 / page.originalWidth,
-                });
+              const viewport = page.getViewport({
+                scale: previewWidth / page.originalWidth,
+              });
 
               setPageDimensions({
                 width: viewport.width,
@@ -254,14 +248,23 @@ function PDFPreview({ fileUrl, documentId }) {
         </div>
       </div>
 
-      <div style={{ marginTop: 8, display: "flex", gap: "10px" }}>
-        <button onClick={saveSignature}>
-          Save Signature Position
-        </button>
-        <button onClick={generateSignedPDF}>
-          Generate Signed PDF
-        </button>
-      </div>
+      {!hideActions && (
+        <div style={{ marginTop: 8, display: "flex", gap: "10px" }}>
+          <button onClick={saveSignature}>
+            Save Signature Position
+          </button>
+          <button onClick={generateSignedPDF}>
+            Generate Signed PDF
+          </button>
+        </div>
+      )}
+
+      {hideActions && (
+        <div style={{ display: "none" }}>
+          <button id={saveButtonId} type="button" onClick={saveSignature} />
+          <button id={generateButtonId} type="button" onClick={generateSignedPDF} />
+        </div>
+      )}
     </div>
   );
 }
