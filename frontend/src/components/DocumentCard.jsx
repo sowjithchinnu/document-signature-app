@@ -2,7 +2,7 @@ import React from "react";
 import PDFPreview from "./PDFPreview";
 import StatusBadge from "./StatusBadge";
 
-function DocumentCard({ doc }) {
+function DocumentCard({ doc, onDelete }) {
   const statusBadge = <StatusBadge status={doc.latestStatus || "Pending"} />;
 
   return (
@@ -50,6 +50,13 @@ function DocumentCard({ doc }) {
             }}
           >
             Generate Signed PDF
+          </button>
+          <button
+            className="w-full sm:w-auto bg-red-600 hover:bg-red-700 text-white px-5 py-3 rounded-lg transition"
+            type="button"
+            onClick={() => onDelete(doc._id)}
+          >
+            Delete
           </button>
         </div>
       </div>

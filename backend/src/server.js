@@ -40,6 +40,7 @@ app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
 app.use("/api/audit", auditRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/docs", documentRoutes);
+app.use("/api/documents", documentRoutes);
 app.use("/api/signatures", signatureRoutes);
 app.use("/api/pdf", pdfRoutes);
 app.get("/api/protected", protect, (req, res) => {

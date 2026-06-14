@@ -1,5 +1,10 @@
+const fs = require("fs");
+const path = require("path");
 const Document = require("../models/Document");
+const Signature = require("../models/Signature");
+const Audit = require("../models/Audit");
 const createAuditLog = require("../utils/createAuditLog");
+
 // Upload Document
 const uploadDocument = async (req, res) => {
   try {
@@ -9,9 +14,11 @@ const uploadDocument = async (req, res) => {
       });
     }
 
+    const storedFilepath = path.relative(path.join(__dirname, "../.."), req.file.path).replace(/\\/g, "/");
+
     const document = await Document.create({
       filename: req.file.originalname,
-      filepath: req.file.path,
+      filepath: storedFilepath,
       uploadedBy: req.user.id,
     });
 
@@ -25,6 +32,59 @@ const uploadDocument = async (req, res) => {
     res.status(201).json({
       message: "Document uploaded successfully",
       document,
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: error.message,
+    });
+  }
+};
+
+// Delete Document
+const deleteDocument = async (req, res) => {
+  try {
+    const { documentId } = req.params;
+
+    const document = await Document.findById(documentId);
+
+    if (!document) {
+      return res.status(404).json({
+        message: "Document not found",
+      });
+    }
+
+    if (document.uploadedBy.toString() !== req.user.id) {
+      return res.status(403).json({
+        message: "You do not have permission to delete this document",
+      });
+    }
+
+    // Delete associated signatures and audit logs
+    await Signature.deleteMany({ documentId });
+    await Audit.deleteMany({ documentId });
+
+    // Delete file assets
+    const originalFile = path.join(__dirname, "../../", document.filepath);
+    if (fs.existsSync(originalFile)) {
+      fs.unlinkSync(originalFile);
+    }
+
+    const signedFile = path.join(
+      __dirname,
+      "../../",
+      "uploads",
+      "signed",
+      `signed-${document.filename}`
+    );
+
+    if (fs.existsSync(signedFile)) {
+      fs.unlinkSync(signedFile);
+    }
+
+    await document.deleteOne();
+
+    return res.status(200).json({
+      message: "Document deleted successfully",
     });
   } catch (error) {
     res.status(500).json({
@@ -51,4 +111,5 @@ const getDocuments = async (req, res) => {
 module.exports = {
   uploadDocument,
   getDocuments,
+  deleteDocument,
 };

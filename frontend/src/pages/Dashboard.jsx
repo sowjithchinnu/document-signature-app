@@ -7,6 +7,8 @@ function Dashboard({ token, onLogout }) {
   const [selectedStatus, setSelectedStatus] = useState("All");
   const [selectedFile, setSelectedFile] = useState(null);
   const [uploadMessage, setUploadMessage] = useState("");
+  const [uploadError, setUploadError] = useState(false);
+  const [statusMessage, setStatusMessage] = useState("");
 
   useEffect(() => {
     if (token) {
@@ -49,6 +51,7 @@ function Dashboard({ token, onLogout }) {
       const sorted = enriched.slice().sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 
       setDocuments(sorted);
+      setStatusMessage("");
     } catch (error) {
       console.error(error);
     }
@@ -72,11 +75,31 @@ function Dashboard({ token, onLogout }) {
 
       await API.post("/docs/upload", formData);
       setSelectedFile(null);
+      setUploadError(false);
       setUploadMessage("Upload successful. Refreshing documents...");
+      await fetchDocuments();
+    } catch (error) {
+      console.error(error);
+      setUploadError(true);
+      setUploadMessage(
+        error.response?.data?.message || "Upload failed. Please try again."
+      );
+    }
+  };
+
+  const handleDeleteDocument = async (documentId) => {
+    const confirmed = window.confirm("Are you sure you want to delete this document? This action cannot be undone.");
+    if (!confirmed) return;
+
+    try {
+      await API.delete(`/documents/${documentId}`);
+      setStatusMessage("Document deleted successfully.");
       fetchDocuments();
     } catch (error) {
       console.error(error);
-      setUploadMessage("Upload failed. Please try again.");
+      setStatusMessage(
+        error.response?.data?.message || "Unable to delete document. Please try again."
+      );
     }
   };
 
@@ -111,7 +134,13 @@ function Dashboard({ token, onLogout }) {
                   Upload PDF
                 </button>
               </div>
-              {uploadMessage && <p className="mt-2 text-sm text-green-600">{uploadMessage}</p>}
+              {uploadMessage && (
+                <p
+                  className={`mt-2 text-sm ${uploadError ? "text-red-600" : "text-green-600"}`}
+                >
+                  {uploadMessage}
+                </p>
+              )}
             </div>
           </div>
 
@@ -139,11 +168,16 @@ function Dashboard({ token, onLogout }) {
             <p className="text-center text-gray-500">No documents yet. Upload a PDF to get started.</p>
           ) : (
             filteredDocuments.map((doc) => (
-              <DocumentCard key={doc._id} doc={doc} />
+              <DocumentCard key={doc._id} doc={doc} onDelete={handleDeleteDocument} />
             ))
           )}
         </section>
 
+        {statusMessage && (
+          <div className="bg-white rounded-xl shadow p-4 text-center text-sm text-gray-700">
+            {statusMessage}
+          </div>
+        )}
         {filteredDocuments.length === 0 && documents.length > 0 && (
           <div className="bg-white rounded-xl shadow p-8 text-center text-gray-500">
             No documents found for this status.
