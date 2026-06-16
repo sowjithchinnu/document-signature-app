@@ -34,7 +34,7 @@ function PublicSign() {
           <p>{document.filename}</p>
 
           <iframe
-            src={`http://localhost:3001/${document.filepath}`}
+            src={`${import.meta.env.VITE_API_BASE}/${document.filepath}`}
             width="600"
             height="800"
           />

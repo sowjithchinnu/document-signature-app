@@ -187,7 +187,7 @@ function PDFPreview({ fileUrl, documentId, previewWidth = 250, hideActions = fal
 
       const fullUrl = downloadUrl.startsWith("http")
         ? downloadUrl
-        : `http://localhost:3001${downloadUrl}`;
+        : `${import.meta.env.VITE_API_BASE}${downloadUrl}`;
 
       window.open(fullUrl, "_blank");
     } catch (error) {

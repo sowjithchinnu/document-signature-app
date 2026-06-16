@@ -10,7 +10,7 @@ function DocumentCard({ doc, onDelete }) {
       <div className="w-full md:w-[220px] flex-shrink-0">
         <div className="w-[220px] h-[300px] rounded-lg border overflow-hidden">
           <PDFPreview
-            fileUrl={`http://localhost:3001/${doc.filepath}`}
+            fileUrl={`${import.meta.env.VITE_API_BASE}/${doc.filepath}`}
             documentId={doc._id}
             previewWidth={220}
             hideActions
