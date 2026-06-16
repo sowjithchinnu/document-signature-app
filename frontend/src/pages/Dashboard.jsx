@@ -18,7 +18,7 @@ function Dashboard({ token, onLogout }) {
 
   const fetchDocuments = async () => {
     try {
-      const res = await API.get("/docs");
+      const res = await API.get("/api/docs");
       const docs = Array.isArray(res.data) ? res.data : [];
 
       // Enrich documents with latest signature status
@@ -73,7 +73,7 @@ function Dashboard({ token, onLogout }) {
       const formData = new FormData();
       formData.append("pdf", selectedFile);
 
-      await API.post("/docs/upload", formData);
+      await API.post("/api/docs/upload", formData);
       setSelectedFile(null);
       setUploadError(false);
       setUploadMessage("Upload successful. Refreshing documents...");
