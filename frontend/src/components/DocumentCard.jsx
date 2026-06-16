@@ -3,6 +3,7 @@ import PDFPreview from "./PDFPreview";
 import StatusBadge from "./StatusBadge";
 
 function DocumentCard({ doc, onDelete }) {
+  console.log(doc.filepath);
   const statusBadge = <StatusBadge status={doc.latestStatus || "Pending"} />;
 
   return (
