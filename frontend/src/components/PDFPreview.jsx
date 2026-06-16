@@ -30,7 +30,7 @@ function PDFPreview({ fileUrl, documentId, previewWidth = 250, hideActions = fal
       if (!documentId) return;
 
       try {
-        const res = await API.get(`/signatures/${documentId}`);
+        const res = await API.get(`/api/signatures/${documentId}`);
 
         const signatures = Array.isArray(res.data) ? res.data : [];
 
@@ -143,7 +143,7 @@ function PDFPreview({ fileUrl, documentId, previewWidth = 250, hideActions = fal
 
   const saveSignature = async () => {
     try {
-      await API.post("/signatures", {
+      await API.post("/api/signatures", {
         documentId,
         x: dragPos.x,
         y: dragPos.y,
