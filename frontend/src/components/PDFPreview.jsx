@@ -198,7 +198,7 @@ function PDFPreview({ fileUrl, documentId, previewWidth = 250, hideActions = fal
       alert("Unable to generate signed PDF.");
     }
   };
-
+  console.log("PDF URL:", fileUrl);
   return (
     <div>
       <div
