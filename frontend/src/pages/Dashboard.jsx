@@ -92,7 +92,7 @@ function Dashboard({ token, onLogout }) {
     if (!confirmed) return;
 
     try {
-      await API.delete(`/documents/${documentId}`);
+      await API.delete(`/api/documents/${documentId}`);
       setStatusMessage("Document deleted successfully.");
       fetchDocuments();
     } catch (error) {

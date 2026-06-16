@@ -174,7 +174,7 @@ function PDFPreview({ fileUrl, documentId, previewWidth = 250, hideActions = fal
   const generateSignedPDF = async () => {
     try {
       const res = await API.get(
-        `/pdf/generate/${documentId}`
+        `/api/pdf/generate/${documentId}`
       );
 
       const downloadUrl = res.data?.downloadUrl;
