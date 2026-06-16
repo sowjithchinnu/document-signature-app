@@ -25,7 +25,7 @@ function Dashboard({ token, onLogout }) {
       const enriched = await Promise.all(
         docs.map(async (doc) => {
           try {
-            const sRes = await API.get(`/signatures/${doc._id}`);
+            const sRes = await API.get(`/api/signatures/${doc._id}`);
             const signatures = Array.isArray(sRes.data)
               ? sRes.data
               : [];

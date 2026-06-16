@@ -14,7 +14,7 @@ function PublicSign() {
   const fetchDocument = async () => {
     try {
       const res = await API.get(
-        `/signatures/public/${token}`
+        `/api/signatures/public/${token}`
       );
 
       setDocument(res.data);
