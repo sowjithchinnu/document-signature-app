@@ -14,8 +14,17 @@ const protect = (req, res, next) => {
 
       req.user = decoded;
 
+      if (req.method === "POST" && req.baseUrl === "/api/signatures") {
+        console.log("[authMiddleware] POST /api/signatures authorized", {
+          userId: decoded.id,
+        });
+      }
+
       next();
     } catch (error) {
+      if (req.method === "POST" && req.baseUrl === "/api/signatures") {
+        console.log("[authMiddleware] POST /api/signatures rejected — invalid token");
+      }
       return res.status(401).json({
         message: "Not authorized, token failed",
       });
@@ -23,6 +32,9 @@ const protect = (req, res, next) => {
   }
 
   if (!token) {
+    if (req.method === "POST" && req.baseUrl === "/api/signatures") {
+      console.log("[authMiddleware] POST /api/signatures rejected — no token");
+    }
     return res.status(401).json({
       message: "Not authorized, no token",
     });

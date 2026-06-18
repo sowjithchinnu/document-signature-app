@@ -14,7 +14,7 @@ function Login({ onLogin }) {
 
     try {
       if (isRegister) {
-        await API.post("/auth/register", {
+        await API.post("/api/auth/register", {
           name: name || email.split("@")[0],
           email,
           password,
@@ -23,7 +23,7 @@ function Login({ onLogin }) {
         setMessage("Registration successful. You can now log in.");
         setIsRegister(false);
       } else {
-        const res = await API.post("/auth/login", {
+        const res = await API.post("/api/auth/login", {
           email,
           password,
         });

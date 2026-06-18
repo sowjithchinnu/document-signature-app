@@ -4,15 +4,26 @@ import API from "../services/api";
 
 import "react-pdf/dist/Page/AnnotationLayer.css";
 import "react-pdf/dist/Page/TextLayer.css";
+import SignaturePad from "./SignaturePad";
 
 pdfjs.GlobalWorkerOptions.workerSrc = new URL(
   "pdfjs-dist/build/pdf.worker.min.mjs",
   import.meta.url
 ).toString();
 
+
 const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
 
-function PDFPreview({ fileUrl, documentId, previewWidth = 250, hideActions = false, saveButtonId, generateButtonId }) {
+function PDFPreview({
+  fileUrl,
+  documentId,
+  previewWidth = 250,
+  hideActions = false,
+  saveButtonId,
+  generateButtonId,
+  actionsRef,
+}) {
+  const [signatureData, setSignatureData] = useState("");
   const [dragPos, setDragPos] = useState({ x: 100, y: 100 });
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
@@ -142,28 +153,59 @@ function PDFPreview({ fileUrl, documentId, previewWidth = 250, hideActions = fal
   };
 
   const saveSignature = async () => {
-    try {
-      await API.post("/api/signatures", {
-        documentId,
-        x: dragPos.x,
-        y: dragPos.y,
-        page: 1,
-        renderedWidth: pageDimensions.width,
-        renderedHeight: pageDimensions.height,
-        xPct: pageDimensions.width
-          ? dragPos.x / pageDimensions.width
-          : undefined,
-        yPct: pageDimensions.height
-          ? dragPos.y / pageDimensions.height
-          : undefined,
-      });
+    console.log("[PDFPreview] saveSignature() called", {
+      documentId,
+      hasSignatureData: !!signatureData,
+      signatureDataLength: signatureData?.length ?? 0,
+      dragPos,
+      pageDimensions,
+    });
 
+    if (!signatureData) {
+      console.warn(
+        "[PDFPreview] Request aborted — signatureData is empty. " +
+          "Draw on the canvas, then click SignaturePad's \"Save Signature\" before \"Save Signature Position\"."
+      );
+      alert("Please draw and save a signature first.");
+      return;
+    }
+
+    const payload = {
+      documentId,
+      x: dragPos.x,
+      y: dragPos.y,
+      signatureType: "drawn",
+      signatureData,
+      page: 1,
+      renderedWidth: pageDimensions.width,
+      renderedHeight: pageDimensions.height,
+      xPct: pageDimensions.width
+        ? dragPos.x / pageDimensions.width
+        : undefined,
+      yPct: pageDimensions.height
+        ? dragPos.y / pageDimensions.height
+        : undefined,
+    };
+
+    console.log("[PDFPreview] Sending POST /api/signatures", {
+      documentId: payload.documentId,
+      signatureType: payload.signatureType,
+      hasSignatureData: !!payload.signatureData,
+      signatureDataLength: payload.signatureData?.length ?? 0,
+      x: payload.x,
+      y: payload.y,
+    });
+
+    try {
+      const res = await API.post("/api/signatures", payload);
+      console.log("[PDFPreview] POST /api/signatures succeeded", res.status, res.data);
       alert("Signature position saved!");
     } catch (error) {
-      console.error(
-        "Failed to save signature:",
-        error
-      );
+      console.error("[PDFPreview] POST /api/signatures failed", {
+        message: error.message,
+        status: error.response?.status,
+        data: error.response?.data,
+      });
 
       alert(
         "Unable to save signature position."
@@ -198,7 +240,10 @@ function PDFPreview({ fileUrl, documentId, previewWidth = 250, hideActions = fal
       alert("Unable to generate signed PDF.");
     }
   };
-  console.log("PDF URL:", fileUrl);
+  if (actionsRef) {
+    actionsRef.current = { saveSignature, generateSignedPDF };
+  }
+
   return (
     <div>
       <div
@@ -246,6 +291,18 @@ function PDFPreview({ fileUrl, documentId, previewWidth = 250, hideActions = fal
         >
           SIGN HERE
         </div>
+      </div>
+
+      <div style={{ marginTop: 16, width: previewWidth }}>
+        <SignaturePad
+          width={previewWidth}
+          onSave={(data) => {
+            console.log("[PDFPreview] SignaturePad onSave — storing signatureData in state", {
+              length: data.length,
+            });
+            setSignatureData(data);
+          }}
+        />
       </div>
 
       {!hideActions && (

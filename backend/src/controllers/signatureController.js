@@ -5,6 +5,14 @@ const createAuditLog = require("../utils/createAuditLog");
 // Save signature position
 const saveSignature = async (req, res) => {
   try {
+    console.log("REQ BODY", req.body);
+    console.log("REQ BODY keys", Object.keys(req.body || {}));
+    console.log("REQ BODY signature fields", {
+      signatureType: req.body?.signatureType,
+      hasSignatureData: !!req.body?.signatureData,
+      signatureDataLength: req.body?.signatureData?.length ?? 0,
+    });
+
     const {
       documentId,
       x,
@@ -14,6 +22,8 @@ const saveSignature = async (req, res) => {
       yPct,
       renderedWidth,
       renderedHeight,
+      signatureType,
+      signatureData,
     } = req.body;
 
     const createData = {
@@ -22,6 +32,8 @@ const saveSignature = async (req, res) => {
       x,
       y,
       page,
+      signatureType,
+      signatureData,
     };
 
     // Store rendered dimensions
@@ -55,8 +67,31 @@ const saveSignature = async (req, res) => {
     ) {
       createData.yPct = createData.y / createData.renderedHeight;
     }
+    console.log("=== CREATE DATA ===");
+    console.log({
+      signatureType: createData.signatureType,
+      hasSignatureData: !!createData.signatureData,
+      dataLength: createData.signatureData?.length,
+    });
 
     const signature = await Signature.create(createData);
+
+    console.log("=== SAVED DOC ===");
+    console.log({
+      id: signature._id,
+      signatureType: signature.signatureType,
+      hasSignatureData: !!signature.signatureData,
+      dataLength: signature.signatureData?.length,
+    });
+
+    const test = await Signature.findOne({ _id: signature._id });
+    console.log("=== MONGODB VERIFY ===");
+    console.log({
+      id: test?._id,
+      signatureType: test?.signatureType,
+      hasSignatureData: !!test?.signatureData,
+      dataLength: test?.signatureData?.length,
+    });
 
     await createAuditLog({
   documentId,

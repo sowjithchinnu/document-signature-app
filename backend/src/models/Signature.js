@@ -52,6 +52,17 @@ renderedHeight: {
       default: 1,
     },
 
+    signatureType: {
+      type: String,
+      enum: ["drawn", "typed", "uploaded"],
+      default: "drawn",
+    },
+
+    signatureData: {
+      type: String,
+      default: "",
+    },
+    
     status: {
       type: String,
       enum: ["Pending", "Signed", "Rejected"],
@@ -65,6 +76,7 @@ renderedHeight: {
   },
   {
     timestamps: true,
+    minimize: false,
   }
 );
 

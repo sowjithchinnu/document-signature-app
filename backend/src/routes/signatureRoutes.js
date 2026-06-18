@@ -13,7 +13,16 @@ const {
   updateSignatureStatus,
 } = require("../controllers/signatureController");
 
-router.post("/", protect, saveSignature);
+router.post("/", (req, res, next) => {
+  console.log("[signatureRoutes] POST /api/signatures received", {
+    hasBody: !!req.body,
+    documentId: req.body?.documentId,
+    signatureType: req.body?.signatureType,
+    hasSignatureData: !!req.body?.signatureData,
+    signatureDataLength: req.body?.signatureData?.length ?? 0,
+  });
+  next();
+}, protect, saveSignature);
 
 router.get(
   "/:documentId",

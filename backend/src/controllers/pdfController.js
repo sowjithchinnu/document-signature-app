@@ -5,6 +5,31 @@ const createAuditLog = require("../utils/createAuditLog");
 const Document = require("../models/Document");
 const Signature = require("../models/Signature");
 
+const SIGNATURE_IMAGE_WIDTH = 120;
+const SIGNATURE_IMAGE_HEIGHT = 50;
+const SIGNED_TEXT_HEIGHT_OFFSET = 12;
+
+const parsePngBytes = (signatureData) => {
+  if (!signatureData || typeof signatureData !== "string") {
+    return null;
+  }
+
+  const trimmed = signatureData.trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  const base64Payload = trimmed.startsWith("data:")
+    ? trimmed.replace(/^data:image\/png;base64,/, "")
+    : trimmed;
+
+  try {
+    return Buffer.from(base64Payload, "base64");
+  } catch {
+    return null;
+  }
+};
+
 const generateSignedPDF = async (req, res) => {
   try {
     console.log("=== generateSignedPDF started ===");
@@ -39,6 +64,8 @@ const generateSignedPDF = async (req, res) => {
 
     console.log("Latest signature found:", signature._id.toString(), {
       status: signature.status,
+      signatureType: signature.signatureType,
+      hasSignatureData: !!signature.signatureData,
       page: signature.page,
       x: signature.x,
       y: signature.y,
@@ -69,9 +96,8 @@ const generateSignedPDF = async (req, res) => {
     const renderedWidth = signature.renderedWidth || 250;
     const renderedHeight = signature.renderedHeight || (pdfHeight / pdfWidth) * 250;
 
-    const textHeightOffset = 12; // Approximate height for size 30 text
+    const textHeightOffset = SIGNED_TEXT_HEIGHT_OFFSET;
 
-    // If the signature was stored using normalized coordinates, prefer those.
     const pdfX = typeof signature.xPct === "number"
       ? signature.xPct * pdfWidth
       : signature.x * (pdfWidth / renderedWidth);
@@ -83,6 +109,17 @@ const generateSignedPDF = async (req, res) => {
     const clampedPdfX = Math.max(0, Math.min(pdfX, pdfWidth - 10));
     const clampedPdfY = Math.max(0, Math.min(pdfY, pdfHeight - 10));
 
+    const imagePdfX = typeof signature.xPct === "number"
+      ? signature.xPct * pdfWidth
+      : signature.x * (pdfWidth / renderedWidth);
+
+    const imagePdfY = typeof signature.yPct === "number"
+      ? pdfHeight - signature.yPct * pdfHeight - SIGNATURE_IMAGE_HEIGHT
+      : pdfHeight - (signature.y + SIGNATURE_IMAGE_HEIGHT) * (pdfHeight / renderedHeight);
+
+    const clampedImageX = Math.max(0, Math.min(imagePdfX, pdfWidth - SIGNATURE_IMAGE_WIDTH));
+    const clampedImageY = Math.max(0, Math.min(imagePdfY, pdfHeight - SIGNATURE_IMAGE_HEIGHT));
+
     console.log("=== Signature Positioning Debug ===");
     console.log("Saved signature dimensions:", {
       renderedWidth: signature.renderedWidth,
@@ -93,9 +130,24 @@ const generateSignedPDF = async (req, res) => {
     console.log("Calculated rendered height:", renderedHeight);
     console.log("Preview coordinates:", { x: signature.x, y: signature.y });
     console.log("PDF dimensions:", { pdfWidth, pdfHeight });
-    console.log("PDF coordinates:", { pdfX, pdfY, clampedPdfX, clampedPdfY });
+    console.log("PDF coordinates:", {
+      text: { pdfX, pdfY, clampedPdfX, clampedPdfY },
+      image: { imagePdfX, imagePdfY, clampedImageX, clampedImageY },
+    });
 
     const status = signature.status || "Pending";
+    const hasDrawnSignature =
+      signature.signatureType === "drawn" &&
+      signature.signatureData &&
+      signature.signatureData.trim() !== "";
+
+    console.log("[pdfController] Stamp decision:", {
+      signatureType: signature.signatureType,
+      hasSignatureData: !!signature.signatureData,
+      hasDrawnSignature,
+      status,
+    });
+
     if (status === "Rejected") {
       page.drawText("REJECTED", {
         x: clampedPdfX,
@@ -103,8 +155,54 @@ const generateSignedPDF = async (req, res) => {
         size: 30,
         color: rgb(1, 0, 0),
       });
+    } else if (hasDrawnSignature) {
+      const imageBytes = parsePngBytes(signature.signatureData);
+
+      if (!imageBytes) {
+        console.log("[pdfController] signatureData present but invalid — using SIGNED fallback");
+        page.drawText("SIGNED", {
+          x: clampedPdfX,
+          y: clampedPdfY,
+          size: 30,
+          color: rgb(0, 0.6, 0),
+        });
+      } else {
+        try {
+          const pngImage = await pdfDoc.embedPng(imageBytes);
+
+          page.drawImage(pngImage, {
+            x: clampedImageX,
+            y: clampedImageY,
+            width: SIGNATURE_IMAGE_WIDTH,
+            height: SIGNATURE_IMAGE_HEIGHT,
+          });
+
+          console.log("[pdfController] Drawn signature image embedded successfully", {
+            signatureType: signature.signatureType,
+            hasSignatureData: true,
+            width: SIGNATURE_IMAGE_WIDTH,
+            height: SIGNATURE_IMAGE_HEIGHT,
+            x: clampedImageX,
+            y: clampedImageY,
+          });
+        } catch (embedError) {
+          console.error(
+            "[pdfController] Image embedding failed — using SIGNED fallback",
+            embedError.message
+          );
+          page.drawText("SIGNED", {
+            x: clampedPdfX,
+            y: clampedPdfY,
+            size: 30,
+            color: rgb(0, 0.6, 0),
+          });
+        }
+      }
     } else {
-      // Pending and Signed signatures should both render as a signed stamp.
+      console.log("[pdfController] Using SIGNED text fallback", {
+        signatureType: signature.signatureType || "(missing)",
+        hasSignatureData: !!signature.signatureData,
+      });
       page.drawText("SIGNED", {
         x: clampedPdfX,
         y: clampedPdfY,
