@@ -47,6 +47,12 @@ renderedHeight: {
       type: Number,
     },
 
+
+signatureText: {
+  type: String,
+  default: "",
+},
+
     page: {
       type: Number,
       default: 1,

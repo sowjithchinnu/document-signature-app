@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Document, Page, pdfjs } from "react-pdf";
 import API from "../services/api";
 
@@ -22,19 +22,85 @@ function PDFPreview({
   saveButtonId,
   generateButtonId,
   actionsRef,
+  fileHttpHeaders,
 }) {
   const [signatureData, setSignatureData] = useState("");
-  const [dragPos, setDragPos] = useState({ x: 100, y: 100 });
+  const [pdfError, setPdfError] = useState("");
+  const [dragPos, setDragPos] = useState({ x: 50, y: 50 });
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
-
+  const [currentPage, setCurrentPage] = useState(1);
+  const [numPages, setNumPages] = useState(0);
   const [pageDimensions, setPageDimensions] = useState({
     width: 0,
     height: 0,
   });
+  const [canvasOffset, setCanvasOffset] = useState({ left: 0, top: 0 });
+
+  const [signatureType, setSignatureType] = useState("drawn");
+  const [typedSignature, setTypedSignature] = useState("");
 
   const containerRef = useRef(null);
   const placeholderRef = useRef(null);
+  const currentPageRef = useRef(currentPage);
+
+  const authHeader = fileHttpHeaders?.Authorization;
+
+  const pdfFile = useMemo(() => {
+    if (authHeader) {
+      return { url: fileUrl, httpHeaders: { Authorization: authHeader } };
+    }
+    return fileUrl;
+  }, [fileUrl, authHeader]);
+
+  useEffect(() => {
+    currentPageRef.current = currentPage;
+  }, [currentPage]);
+
+  useEffect(() => {
+    setPdfError("");
+  }, [fileUrl]);
+
+  const getPageCanvas = useCallback(() => {
+    return containerRef.current?.querySelector(".react-pdf__Page__canvas") ?? null;
+  }, []);
+
+  const syncCanvasMetrics = useCallback(() => {
+    const canvas = getPageCanvas();
+    const container = containerRef.current;
+
+    if (!canvas || !container) {
+      return null;
+    }
+
+    const containerRect = container.getBoundingClientRect();
+    const canvasRect = canvas.getBoundingClientRect();
+
+    const metrics = {
+      left: canvasRect.left - containerRect.left,
+      top: canvasRect.top - containerRect.top,
+      width: canvasRect.width,
+      height: canvasRect.height,
+    };
+
+    setCanvasOffset((prev) =>
+      prev.left === metrics.left && prev.top === metrics.top ? prev : metrics
+    );
+
+    setPageDimensions((prev) =>
+      prev.width === metrics.width && prev.height === metrics.height
+        ? prev
+        : { width: metrics.width, height: metrics.height }
+    );
+
+    return metrics;
+  }, [getPageCanvas]);
+
+  useEffect(() => {
+    setDragPos({ x: 50, y: 50 });
+    setPageDimensions({ width: 0, height: 0 });
+    setCanvasOffset({ left: 0, top: 0 });
+  }, [currentPage]);
 
   useEffect(() => {
     const fetchLatestSignature = async () => {
@@ -53,15 +119,19 @@ function PDFPreview({
 
         const x = Number(latestSignature.x);
         const y = Number(latestSignature.y);
+        const page = Number(latestSignature.page);
+
+        if (!Number.isNaN(page) && page > 0) {
+          setCurrentPage(page);
+        }
 
         if (!Number.isNaN(x) && !Number.isNaN(y)) {
-          setDragPos({ x, y });
+          setDragPos((prev) =>
+            prev.x === x && prev.y === y ? prev : { x, y }
+          );
         }
       } catch (error) {
-        console.error(
-          "Failed to fetch latest signature:",
-          error
-        );
+        console.error("Failed to fetch latest signature:", error);
       }
     };
 
@@ -72,37 +142,26 @@ function PDFPreview({
     const handleMouseMove = (event) => {
       if (!isDragging) return;
 
-      const container = containerRef.current;
+      const canvas = getPageCanvas();
       const placeholder = placeholderRef.current;
 
-      if (!container) return;
+      if (!canvas) return;
 
-      const rect = container.getBoundingClientRect();
-      const placeholderRect =
-        placeholder?.getBoundingClientRect();
+      const rect = canvas.getBoundingClientRect();
+      const placeholderRect = placeholder?.getBoundingClientRect();
 
-      const maxX = Math.max(
-        0,
-        rect.width - (placeholderRect?.width ?? 0)
+      const maxX = Math.max(0, rect.width - (placeholderRect?.width ?? 0));
+      const maxY = Math.max(0, rect.height - (placeholderRect?.height ?? 0));
+
+      const x = Math.round(event.clientX - rect.left - dragOffset.x);
+      const y = Math.round(event.clientY - rect.top - dragOffset.y);
+
+      const nextX = clamp(x, 0, maxX);
+      const nextY = clamp(y, 0, maxY);
+
+      setDragPos((prev) =>
+        prev.x === nextX && prev.y === nextY ? prev : { x: nextX, y: nextY }
       );
-
-      const maxY = Math.max(
-        0,
-        rect.height - (placeholderRect?.height ?? 0)
-      );
-
-      const x = Math.round(
-        event.clientX - rect.left - dragOffset.x
-      );
-
-      const y = Math.round(
-        event.clientY - rect.top - dragOffset.y
-      );
-
-      setDragPos({
-        x: clamp(x, 0, maxX),
-        y: clamp(y, 0, maxY),
-      });
     };
 
     const handleMouseUp = () => {
@@ -111,120 +170,146 @@ function PDFPreview({
       }
     };
 
-    window.addEventListener(
-      "mousemove",
-      handleMouseMove
-    );
-
+    window.addEventListener("mousemove", handleMouseMove);
     window.addEventListener("mouseup", handleMouseUp);
 
     return () => {
-      window.removeEventListener(
-        "mousemove",
-        handleMouseMove
-      );
-
-      window.removeEventListener(
-        "mouseup",
-        handleMouseUp
-      );
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseup", handleMouseUp);
     };
-  }, [isDragging, dragOffset]);
+  }, [isDragging, dragOffset, getPageCanvas]);
 
-  const handleMouseDown = (event) => {
-    const container = containerRef.current;
+  const handleMouseDown = useCallback(
+    (event) => {
+      const canvas = getPageCanvas();
 
-    if (!container) return;
+      if (!canvas) return;
 
-    const rect = container.getBoundingClientRect();
+      const rect = canvas.getBoundingClientRect();
 
-    const offsetX =
-      event.clientX - rect.left - dragPos.x;
-
-    const offsetY =
-      event.clientY - rect.top - dragPos.y;
-
-    setDragOffset({
-      x: offsetX,
-      y: offsetY,
-    });
-
-    setIsDragging(true);
-  };
-
-  const saveSignature = async () => {
-    console.log("[PDFPreview] saveSignature() called", {
-      documentId,
-      hasSignatureData: !!signatureData,
-      signatureDataLength: signatureData?.length ?? 0,
-      dragPos,
-      pageDimensions,
-    });
-
-    if (!signatureData) {
-      console.warn(
-        "[PDFPreview] Request aborted — signatureData is empty. " +
-          "Draw on the canvas, then click SignaturePad's \"Save Signature\" before \"Save Signature Position\"."
-      );
-      alert("Please draw and save a signature first.");
-      return;
-    }
-
-    const payload = {
-      documentId,
-      x: dragPos.x,
-      y: dragPos.y,
-      signatureType: "drawn",
-      signatureData,
-      page: 1,
-      renderedWidth: pageDimensions.width,
-      renderedHeight: pageDimensions.height,
-      xPct: pageDimensions.width
-        ? dragPos.x / pageDimensions.width
-        : undefined,
-      yPct: pageDimensions.height
-        ? dragPos.y / pageDimensions.height
-        : undefined,
-    };
-
-    console.log("[PDFPreview] Sending POST /api/signatures", {
-      documentId: payload.documentId,
-      signatureType: payload.signatureType,
-      hasSignatureData: !!payload.signatureData,
-      signatureDataLength: payload.signatureData?.length ?? 0,
-      x: payload.x,
-      y: payload.y,
-    });
-
-    try {
-      const res = await API.post("/api/signatures", payload);
-      console.log("[PDFPreview] POST /api/signatures succeeded", res.status, res.data);
-      alert("Signature position saved!");
-    } catch (error) {
-      console.error("[PDFPreview] POST /api/signatures failed", {
-        message: error.message,
-        status: error.response?.status,
-        data: error.response?.data,
+      setDragOffset({
+        x: event.clientX - rect.left - dragPos.x,
+        y: event.clientY - rect.top - dragPos.y,
       });
 
-      alert(
-        "Unable to save signature position."
-      );
-    }
+      setIsDragging(true);
+    },
+    [dragPos.x, dragPos.y, getPageCanvas]
+  );
+
+  const handleDocumentLoadSuccess = useCallback(({ numPages: totalPages }) => {
+    setNumPages(totalPages);
+  }, []);
+
+  const handlePageLoadSuccess = useCallback(
+    (page) => {
+      if (page.pageNumber !== currentPageRef.current) {
+        return;
+      }
+
+      const viewport = page.getViewport({
+        scale: previewWidth / page.originalWidth,
+      });
+
+      setPageDimensions((prev) => {
+        if (
+          prev.width === viewport.width &&
+          prev.height === viewport.height
+        ) {
+          return prev;
+        }
+        return {
+          width: viewport.width,
+          height: viewport.height,
+        };
+      });
+
+      requestAnimationFrame(() => {
+        syncCanvasMetrics();
+      });
+    },
+    [previewWidth, syncCanvasMetrics]
+  );
+
+  const handleDocumentLoadError = useCallback((error) => {
+    console.error("PDF preview failed to load:", error);
+    setPdfError(
+      "PDF file not found on the server. Delete this document and upload it again."
+    );
+  }, []);
+
+  const handleSignaturePadSave = useCallback((data) => {
+    setSignatureData(data);
+  }, []);
+
+  const saveSignature = useCallback(async () => {
+
+  const hasDrawnSignature =
+    signatureType === "drawn" && signatureData;
+
+  const hasTypedSignature =
+    signatureType === "typed" &&
+    typedSignature?.trim();
+
+  if (!hasDrawnSignature && !hasTypedSignature) {
+    alert("Please provide a signature first.");
+    return;
+  }
+
+  const metrics = syncCanvasMetrics();
+  const renderedWidth = metrics?.width ?? pageDimensions.width;
+  const renderedHeight = metrics?.height ?? pageDimensions.height;
+
+  if (!renderedWidth || !renderedHeight) {
+    alert("PDF page is still loading. Please wait and try again.");
+    return;
+  }
+
+  const xPct = dragPos.x / renderedWidth;
+  const yPct = dragPos.y / renderedHeight;
+
+  const payload = {
+    documentId,
+    x: canvasOffset.left + dragPos.x,
+    y: canvasOffset.top + dragPos.y,
+    signatureType,
+    signatureText: typedSignature,
+    signatureData,
+    page: currentPage,
+    renderedWidth,
+    renderedHeight,
+    xPct,
+    yPct,
   };
 
-  const generateSignedPDF = async () => {
+  try {
+    await API.post("/api/signatures", payload);
+    alert("Signature position saved!");
+  } catch (error) {
+    console.error(error);
+    alert("Unable to save signature position.");
+  }
+
+}, [
+  documentId,
+  dragPos,
+  pageDimensions,
+  signatureData,
+  typedSignature,
+  signatureType,
+  currentPage,
+  canvasOffset,
+  syncCanvasMetrics,
+]);
+
+  const generateSignedPDF = useCallback(async () => {
     try {
-      const res = await API.get(
-        `/api/pdf/generate/${documentId}`
-      );
+      const res = await API.get(`/api/pdf/generate/${documentId}`);
 
       const downloadUrl = res.data?.downloadUrl;
 
       if (!downloadUrl) {
-        throw new Error(
-          "No download URL returned from generate endpoint"
-        );
+        throw new Error("No download URL returned from generate endpoint");
       }
 
       const fullUrl = downloadUrl.startsWith("http")
@@ -233,19 +318,50 @@ function PDFPreview({
 
       window.open(fullUrl, "_blank");
     } catch (error) {
-      console.error(
-        "Failed to generate signed PDF:",
-        error
-      );
+      console.error("Failed to generate signed PDF:", error);
       alert("Unable to generate signed PDF.");
     }
-  };
-  if (actionsRef) {
-    actionsRef.current = { saveSignature, generateSignedPDF };
-  }
+  }, [documentId]);
+
+  useEffect(() => {
+    if (actionsRef) {
+      actionsRef.current = { saveSignature, generateSignedPDF };
+    }
+  }, [actionsRef, saveSignature, generateSignedPDF]);
 
   return (
     <div>
+      <div
+        style={{
+          display: "flex",
+          gap: "10px",
+          marginBottom: "10px",
+          alignItems: "center",
+        }}
+      >
+        <button
+          type="button"
+          onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+          disabled={currentPage <= 1}
+        >
+          Previous
+        </button>
+
+        <span>
+          Page {currentPage} of {numPages}
+        </span>
+
+        <button
+          type="button"
+          onClick={() =>
+            setCurrentPage((p) => Math.min(numPages || p, p + 1))
+          }
+          disabled={currentPage >= numPages}
+        >
+          Next
+        </button>
+      </div>
+
       <div
         ref={containerRef}
         style={{
@@ -253,22 +369,31 @@ function PDFPreview({
           display: "inline-block",
         }}
       >
-        <Document file={fileUrl}>
+        <Document
+          file={pdfFile}
+          onLoadSuccess={handleDocumentLoadSuccess}
+          onLoadError={handleDocumentLoadError}
+        >
           <Page
-            pageNumber={1}
+            pageNumber={currentPage}
             width={previewWidth}
-            onLoadSuccess={(page) => {
-              const viewport = page.getViewport({
-                scale: previewWidth / page.originalWidth,
-              });
-
-              setPageDimensions({
-                width: viewport.width,
-                height: viewport.height,
-              });
-            }}
+            onLoadSuccess={handlePageLoadSuccess}
+            onRenderSuccess={syncCanvasMetrics}
           />
         </Document>
+
+        {pdfError && (
+          <p
+            style={{
+              color: "#b91c1c",
+              fontSize: 12,
+              marginTop: 8,
+              maxWidth: previewWidth,
+            }}
+          >
+            {pdfError}
+          </p>
+        )}
 
         <div
           id="signature-placeholder"
@@ -276,15 +401,13 @@ function PDFPreview({
           onMouseDown={handleMouseDown}
           style={{
             position: "absolute",
-            left: `${dragPos.x}px`,
-            top: `${dragPos.y}px`,
+            left: `${canvasOffset.left + dragPos.x}px`,
+            top: `${canvasOffset.top + dragPos.y}px`,
             backgroundColor: "yellow",
-            padding: "8px 10px",
+            padding: "2px 2px",
             border: "1px solid #333",
             fontWeight: "bold",
-            cursor: isDragging
-              ? "grabbing"
-              : "grab",
+            cursor: isDragging ? "grabbing" : "grab",
             userSelect: "none",
             zIndex: 10,
           }}
@@ -294,23 +417,42 @@ function PDFPreview({
       </div>
 
       <div style={{ marginTop: 16, width: previewWidth }}>
-        <SignaturePad
-          width={previewWidth}
-          onSave={(data) => {
-            console.log("[PDFPreview] SignaturePad onSave — storing signatureData in state", {
-              length: data.length,
-            });
-            setSignatureData(data);
-          }}
-        />
-      </div>
+  <select
+    value={signatureType}
+    onChange={(e) => setSignatureType(e.target.value)}
+    style={{ marginBottom: "10px", width: "100%" }}
+  >
+    <option value="drawn">Draw Signature</option>
+    <option value="typed">Type Signature</option>
+  </select>
+
+  {signatureType === "drawn" ? (
+    <SignaturePad
+      width={previewWidth}
+      onSave={handleSignaturePadSave}
+    />
+  ) : (
+    <input
+      type="text"
+      value={typedSignature}
+      onChange={(e) => setTypedSignature(e.target.value)}
+      placeholder="Type your signature"
+      style={{
+        width: "100%",
+        padding: "10px",
+        fontSize: "20px",
+        fontFamily: "cursive",
+      }}
+    />
+  )}
+</div>
 
       {!hideActions && (
         <div style={{ marginTop: 8, display: "flex", gap: "10px" }}>
-          <button onClick={saveSignature}>
+          <button type="button" onClick={saveSignature}>
             Save Signature Position
           </button>
-          <button onClick={generateSignedPDF}>
+          <button type="button" onClick={generateSignedPDF}>
             Generate Signed PDF
           </button>
         </div>
@@ -319,7 +461,11 @@ function PDFPreview({
       {hideActions && (
         <div style={{ display: "none" }}>
           <button id={saveButtonId} type="button" onClick={saveSignature} />
-          <button id={generateButtonId} type="button" onClick={generateSignedPDF} />
+          <button
+            id={generateButtonId}
+            type="button"
+            onClick={generateSignedPDF}
+          />
         </div>
       )}
     </div>

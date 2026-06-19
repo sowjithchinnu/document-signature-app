@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import API from "../services/api";
 import DocumentCard from "../components/DocumentCard";
+import { FiRefreshCw } from "react-icons/fi";
 
 function Dashboard({ token, onLogout }) {
   const [documents, setDocuments] = useState([]);
@@ -19,6 +20,7 @@ function Dashboard({ token, onLogout }) {
   const fetchDocuments = async () => {
     try {
       const res = await API.get("/api/docs");
+      console.log("DOCUMENT RESPONSE:", res.data);
       const docs = Array.isArray(res.data) ? res.data : [];
 
       // Enrich documents with latest signature status
@@ -106,7 +108,10 @@ function Dashboard({ token, onLogout }) {
   return (
     <div className="min-h-screen bg-gray-50 p-4 md:p-8">
       <header className="max-w-6xl mx-auto flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold">My Documents</h1>
+        <h1 className="text-4xl font-bold">My Documents</h1>
+        <button onClick={fetchDocuments}>
+          Refresh
+        </button>
         <button
           onClick={onLogout}
           className="px-3 py-2 bg-white border rounded-md shadow-sm text-sm hover:bg-gray-100"
@@ -149,15 +154,23 @@ function Dashboard({ token, onLogout }) {
               <label className="block text-sm font-medium text-gray-700">Filter by status</label>
               <div className="mt-2">
                 <select
+                  
                   value={selectedStatus}
                   onChange={(e) => setSelectedStatus(e.target.value)}
                   className="block w-full rounded-md border-gray-200 bg-white py-2 px-3 text-sm"
                 >
+                  
                   <option>All</option>
                   <option>Pending</option>
                   <option>Signed</option>
                   <option>Rejected</option>
                 </select>
+                <button
+  onClick={fetchDocuments}
+  title="Refresh Documents"
+>
+  <FiRefreshCw />
+</button>
               </div>
             </div>
           </div>
@@ -168,7 +181,7 @@ function Dashboard({ token, onLogout }) {
             <p className="text-center text-gray-500">No documents yet. Upload a PDF to get started.</p>
           ) : (
             filteredDocuments.map((doc) => (
-              <DocumentCard key={doc._id} doc={doc} onDelete={handleDeleteDocument} />
+              <DocumentCard key={doc._id} doc={doc} token={token} onDelete={handleDeleteDocument} />
             ))
           )}
         </section>

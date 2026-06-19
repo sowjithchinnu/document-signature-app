@@ -1,17 +1,23 @@
-import React, { useRef } from "react";
+import React, { useMemo, useRef } from "react";
 import PDFPreview from "./PDFPreview";
 import StatusBadge from "./StatusBadge";
 
-function DocumentCard({ doc, onDelete }) {
+function DocumentCard({ doc, onDelete, token }) {
   const previewActionsRef = useRef(null);
-  console.log(doc.filepath);
+  const apiBase = import.meta.env.VITE_API_URL || "";
+  const fileUrl = `${apiBase}/api/documents/${doc._id}/file`;
+  const fileHttpHeaders = useMemo(
+    () => (token ? { Authorization: `Bearer ${token}` } : undefined),
+    [token]
+  );
   const statusBadge = <StatusBadge status={doc.latestStatus || "Pending"} />;
 
   return (
     <div className="bg-white rounded-xl shadow-md p-8 flex flex-col md:flex-row gap-8 w-full">
       <div className="w-full md:w-[220px] flex-shrink-0">
         <PDFPreview
-          fileUrl={`${import.meta.env.VITE_API_URL}/${doc.filepath}`}
+          fileUrl={fileUrl}
+          fileHttpHeaders={fileHttpHeaders}
           documentId={doc._id}
           previewWidth={220}
           hideActions

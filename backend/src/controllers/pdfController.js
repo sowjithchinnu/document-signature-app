@@ -178,13 +178,24 @@ const generateSignedPDF = async (req, res) => {
     });
 
     if (status === "Rejected") {
-      page.drawText("REJECTED", {
-        x: clampedPdfX,
-        y: clampedPdfY,
-        size: 30,
-        color: rgb(1, 0, 0),
-      });
-    } else if (hasDrawnSignature) {
+  page.drawText("REJECTED", {
+    x: clampedPdfX,
+    y: clampedPdfY,
+    size: 30,
+    color: rgb(1, 0, 0),
+  });
+} else if (signature.signatureType === "typed") {
+  page.drawText(signature.signatureText || "Typed Signature", {
+    x: clampedPdfX,
+    y: clampedPdfY,
+    size: 24,
+    color: rgb(0, 0, 0),
+  });
+
+  console.log("[pdfController] Typed signature rendered", {
+    text: signature.signatureText,
+  });
+} else if (hasDrawnSignature) {
       const imageBytes = parsePngBytes(signature.signatureData);
 
       if (!imageBytes) {

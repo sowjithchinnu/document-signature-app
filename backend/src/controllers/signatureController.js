@@ -23,18 +23,21 @@ const saveSignature = async (req, res) => {
       renderedWidth,
       renderedHeight,
       signatureType,
+      signatureText,
       signatureData,
     } = req.body;
 
     const createData = {
-      documentId,
-      signer: req.user.id,
-      x,
-      y,
-      page,
-      signatureType,
-      signatureData,
-    };
+  documentId,
+  signer: req.user.id,
+  x,
+  y,
+  page,
+
+  signatureType: signatureType || "drawn",
+  signatureText: signatureText || "",
+  signatureData: signatureData || "",
+};
 
     // Store rendered dimensions
     if (typeof renderedWidth === "number") {
