@@ -121,13 +121,14 @@ document-signature-app/
 
 ![Draw Signature](./screenshots/draw-signature.png)
 
+### Generated Signed PDF
+
+![Signed PDF](./screenshots/signed-pdf.png)
+
 ### Typed Signature
 
 ![Typed Signature](./screenshots/typed-signature.png)
 
-### Generated Signed PDF
-
-![Signed PDF](./screenshots/signed-pdf.png)
 
 ---
 
@@ -234,7 +235,6 @@ ECE Student, IIIT Dharwad
 
 GitHub: https://github.com/sowjithchinnu
 
-Portfolio: https://sowjith.dev
 
 ---
 
