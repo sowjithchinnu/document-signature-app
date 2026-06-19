@@ -5,8 +5,8 @@ const createAuditLog = require("../utils/createAuditLog");
 const Document = require("../models/Document");
 const Signature = require("../models/Signature");
 
-const SIGNATURE_IMAGE_WIDTH = 120;
-const SIGNATURE_IMAGE_HEIGHT = 50;
+const SIGNATURE_IMAGE_WIDTH = 240;
+const SIGNATURE_IMAGE_HEIGHT = 100;
 const SIGNED_TEXT_HEIGHT_OFFSET = 12;
 
 const parsePngBytes = (signatureData) => {
@@ -51,6 +51,7 @@ const generateSignedPDF = async (req, res) => {
     }
 
     console.log("Document found:", document._id);
+    
 
     // Find the latest signature for this document by update time,
     // so status changes are reflected immediately.
@@ -92,47 +93,75 @@ const generateSignedPDF = async (req, res) => {
     const pdfWidth = page.getWidth();
     const pdfHeight = page.getHeight();
 
-    // Use saved rendered dimensions from frontend (or fallback to defaults)
     const renderedWidth = signature.renderedWidth || 250;
-    const renderedHeight = signature.renderedHeight || (pdfHeight / pdfWidth) * 250;
+    const renderedHeight =
+      signature.renderedHeight || (pdfHeight / pdfWidth) * renderedWidth;
+
+    // Prefer normalized coordinates — they are page-size independent.
+    const xPct = typeof signature.xPct === "number" ? signature.xPct : signature.x / renderedWidth;
+    const yPct = typeof signature.yPct === "number" ? signature.yPct : signature.y / renderedHeight;
+
+    const signatureWidth = pdfWidth * 0.21;
+    const signatureHeight = signatureWidth * 0.6;
+
+    // Preview uses top-left origin (CSS). PDF uses bottom-left origin.
+    // yPct is the fraction from the TOP of the preview page to the placeholder top edge.
+    const imagePdfX = xPct * pdfWidth;
+    const imageTopFromPdfBottom = pdfHeight - yPct * pdfHeight;
+    const imagePdfY = imageTopFromPdfBottom - signatureHeight;
+
+    const clampedImageX = Math.max(0, Math.min(imagePdfX, pdfWidth - signatureWidth));
+    const clampedImageY = Math.max(0, Math.min(imagePdfY, pdfHeight - signatureHeight));
+
+    console.log("=== X COORDINATE TRACE (PDF) ===");
+    console.log({
+      mongoX: signature.x,
+      mongoXPct: signature.xPct,
+      pdfWidth,
+      imagePdfX,
+      signatureWidth,
+      clampedImageX,
+      referencePoint: "left edge of image, pdf-lib bottom-left origin",
+    });
 
     const textHeightOffset = SIGNED_TEXT_HEIGHT_OFFSET;
-
-    const pdfX = typeof signature.xPct === "number"
-      ? signature.xPct * pdfWidth
-      : signature.x * (pdfWidth / renderedWidth);
-
-    const pdfY = typeof signature.yPct === "number"
-      ? pdfHeight - signature.yPct * pdfHeight - textHeightOffset
-      : pdfHeight - (signature.y + textHeightOffset) * (pdfHeight / renderedHeight);
-
-    const clampedPdfX = Math.max(0, Math.min(pdfX, pdfWidth - 10));
-    const clampedPdfY = Math.max(0, Math.min(pdfY, pdfHeight - 10));
-
-    const imagePdfX = typeof signature.xPct === "number"
-      ? signature.xPct * pdfWidth
-      : signature.x * (pdfWidth / renderedWidth);
-
-    const imagePdfY = typeof signature.yPct === "number"
-      ? pdfHeight - signature.yPct * pdfHeight - SIGNATURE_IMAGE_HEIGHT
-      : pdfHeight - (signature.y + SIGNATURE_IMAGE_HEIGHT) * (pdfHeight / renderedHeight);
-
-    const clampedImageX = Math.max(0, Math.min(imagePdfX, pdfWidth - SIGNATURE_IMAGE_WIDTH));
-    const clampedImageY = Math.max(0, Math.min(imagePdfY, pdfHeight - SIGNATURE_IMAGE_HEIGHT));
+    const clampedPdfX = clampedImageX;
+    const clampedPdfY = Math.max(
+      0,
+      Math.min(imageTopFromPdfBottom - textHeightOffset, pdfHeight - textHeightOffset)
+    );
 
     console.log("=== Signature Positioning Debug ===");
-    console.log("Saved signature dimensions:", {
+    console.log("Stored signature:", {
+      page: signature.page,
+      previewX: signature.x,
+      previewY: signature.y,
+      xPct,
+      yPct,
       renderedWidth: signature.renderedWidth,
       renderedHeight: signature.renderedHeight,
-      xPct: signature.xPct,
-      yPct: signature.yPct,
     });
-    console.log("Calculated rendered height:", renderedHeight);
-    console.log("Preview coordinates:", { x: signature.x, y: signature.y });
-    console.log("PDF dimensions:", { pdfWidth, pdfHeight });
-    console.log("PDF coordinates:", {
-      text: { pdfX, pdfY, clampedPdfX, clampedPdfY },
-      image: { imagePdfX, imagePdfY, clampedImageX, clampedImageY },
+    console.log("Target PDF page:", {
+      pageIndex,
+      pdfWidth,
+      pdfHeight,
+    });
+    console.log("Coordinate conversion:", {
+      xPct,
+      yPct,
+      pdfWidth,
+      pdfHeight,
+      imagePdfX,
+      imageTopFromPdfBottom,
+      imagePdfY,
+      signatureWidth,
+      signatureHeight,
+    });
+    console.log("Final draw coordinates:", {
+      clampedImageX,
+      clampedImageY,
+      clampedPdfX,
+      clampedPdfY,
     });
 
     const status = signature.status || "Pending";
@@ -169,19 +198,19 @@ const generateSignedPDF = async (req, res) => {
       } else {
         try {
           const pngImage = await pdfDoc.embedPng(imageBytes);
-
+          
           page.drawImage(pngImage, {
             x: clampedImageX,
             y: clampedImageY,
-            width: SIGNATURE_IMAGE_WIDTH,
-            height: SIGNATURE_IMAGE_HEIGHT,
+            width: signatureWidth,
+            height: signatureHeight,
           });
 
           console.log("[pdfController] Drawn signature image embedded successfully", {
             signatureType: signature.signatureType,
             hasSignatureData: true,
-            width: SIGNATURE_IMAGE_WIDTH,
-            height: SIGNATURE_IMAGE_HEIGHT,
+            width: signatureWidth,
+            height: signatureHeight,
             x: clampedImageX,
             y: clampedImageY,
           });

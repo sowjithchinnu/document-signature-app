@@ -72,6 +72,9 @@ const saveSignature = async (req, res) => {
       signatureType: createData.signatureType,
       hasSignatureData: !!createData.signatureData,
       dataLength: createData.signatureData?.length,
+      x: createData.x,
+      xPct: createData.xPct,
+      renderedWidth: createData.renderedWidth,
     });
 
     const signature = await Signature.create(createData);

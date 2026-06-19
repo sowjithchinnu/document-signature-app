@@ -108,8 +108,51 @@ const getDocuments = async (req, res) => {
   }
 };
 
+const serveDocumentFile = async (req, res) => {
+  try {
+    const { documentId } = req.params;
+
+    const document = await Document.findById(documentId);
+
+    if (!document) {
+      return res.status(404).json({
+        message: "Document not found",
+      });
+    }
+
+    if (document.uploadedBy.toString() !== req.user.id) {
+      return res.status(403).json({
+        message: "You do not have permission to access this document",
+      });
+    }
+
+    const filePath = path.resolve(
+      path.join(__dirname, "../../", document.filepath)
+    );
+
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).json({
+        message:
+          "PDF file not found on server. It may have been lost after a deploy or restart. Please delete this document and upload it again.",
+        filepath: document.filepath,
+      });
+    }
+
+    return res.sendFile(filePath, {
+      headers: {
+        "Content-Type": "application/pdf",
+      },
+    });
+  } catch (error) {
+    return res.status(500).json({
+      message: error.message,
+    });
+  }
+};
+
 module.exports = {
   uploadDocument,
   getDocuments,
   deleteDocument,
+  serveDocumentFile,
 };

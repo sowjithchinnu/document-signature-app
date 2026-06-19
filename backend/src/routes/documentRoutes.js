@@ -9,6 +9,7 @@ const {
   uploadDocument,
   getDocuments,
   deleteDocument,
+  serveDocumentFile,
 } = require("../controllers/documentController");
 
 const protect = require("../middleware/authMiddleware");
@@ -39,6 +40,12 @@ router.get(
   "/",
   protect,
   getDocuments
+);
+
+router.get(
+  "/:documentId/file",
+  protect,
+  serveDocumentFile
 );
 
 router.delete(
