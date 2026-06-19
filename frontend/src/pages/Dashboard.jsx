@@ -109,9 +109,7 @@ function Dashboard({ token, onLogout }) {
     <div className="min-h-screen bg-gray-50 p-4 md:p-8">
       <header className="max-w-6xl mx-auto flex items-center justify-between mb-6">
         <h1 className="text-4xl font-bold">My Documents</h1>
-        <button onClick={fetchDocuments}>
-          Refresh
-        </button>
+      
         <button
           onClick={onLogout}
           className="px-3 py-2 bg-white border rounded-md shadow-sm text-sm hover:bg-gray-100"

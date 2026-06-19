@@ -5,6 +5,8 @@ import API from "../services/api";
 import "react-pdf/dist/Page/AnnotationLayer.css";
 import "react-pdf/dist/Page/TextLayer.css";
 import SignaturePad from "./SignaturePad";
+import { toPng } from "html-to-image";
+
 
 pdfjs.GlobalWorkerOptions.workerSrc = new URL(
   "pdfjs-dist/build/pdf.worker.min.mjs",
@@ -36,7 +38,7 @@ function PDFPreview({
     height: 0,
   });
   const [canvasOffset, setCanvasOffset] = useState({ left: 0, top: 0 });
-
+  const typedSignatureRef = useRef(null);
   const [signatureType, setSignatureType] = useState("drawn");
   const [typedSignature, setTypedSignature] = useState("");
 
@@ -243,7 +245,6 @@ function PDFPreview({
   }, []);
 
   const saveSignature = useCallback(async () => {
-
   const hasDrawnSignature =
     signatureType === "drawn" && signatureData;
 
@@ -256,12 +257,44 @@ function PDFPreview({
     return;
   }
 
+  let finalSignatureData = signatureData;
+
+  // Convert typed signature preview into PNG
+  if (
+    signatureType === "typed" &&
+    typedSignatureRef.current
+  ) {
+    try {
+      finalSignatureData = await toPng(
+        typedSignatureRef.current,
+        {
+          cacheBust: true,
+          backgroundColor: "white",
+        }
+      );
+    } catch (error) {
+      console.error(
+        "Failed to convert typed signature to PNG:",
+        error
+      );
+
+      alert("Unable to generate typed signature image.");
+      return;
+    }
+  }
+
   const metrics = syncCanvasMetrics();
-  const renderedWidth = metrics?.width ?? pageDimensions.width;
-  const renderedHeight = metrics?.height ?? pageDimensions.height;
+
+  const renderedWidth =
+    metrics?.width ?? pageDimensions.width;
+
+  const renderedHeight =
+    metrics?.height ?? pageDimensions.height;
 
   if (!renderedWidth || !renderedHeight) {
-    alert("PDF page is still loading. Please wait and try again.");
+    alert(
+      "PDF page is still loading. Please wait and try again."
+    );
     return;
   }
 
@@ -270,26 +303,37 @@ function PDFPreview({
 
   const payload = {
     documentId,
+
     x: canvasOffset.left + dragPos.x,
     y: canvasOffset.top + dragPos.y,
-    signatureType,
-    signatureText: typedSignature,
-    signatureData,
+
     page: currentPage,
+
     renderedWidth,
     renderedHeight,
+
     xPct,
     yPct,
+
+    signatureType,
+
+    signatureText: typedSignature,
+
+    // IMPORTANT:
+    // drawn -> original canvas PNG
+    // typed -> generated PNG from html-to-image
+    signatureData: finalSignatureData,
   };
 
   try {
     await API.post("/api/signatures", payload);
+
     alert("Signature position saved!");
   } catch (error) {
     console.error(error);
+
     alert("Unable to save signature position.");
   }
-
 }, [
   documentId,
   dragPos,
@@ -432,18 +476,23 @@ function PDFPreview({
       onSave={handleSignaturePadSave}
     />
   ) : (
-    <input
-      type="text"
-      value={typedSignature}
-      onChange={(e) => setTypedSignature(e.target.value)}
-      placeholder="Type your signature"
-      style={{
-        width: "100%",
-        padding: "10px",
-        fontSize: "20px",
-        fontFamily: "cursive",
-      }}
-    />
+    <div>
+  <input
+    type="text"
+    value={typedSignature}
+    onChange={(e) => setTypedSignature(e.target.value)}
+    placeholder="Type your signature"
+    style={{
+      width: "100%",
+      padding: "10px",
+      marginBottom: "10px",
+    }}
+  />
+
+  <div className="mt-4 text-xl font-medium">
+    {typedSignature}
+  </div>
+</div>
   )}
 </div>
 

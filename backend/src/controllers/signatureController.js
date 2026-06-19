@@ -33,7 +33,7 @@ const saveSignature = async (req, res) => {
   x,
   y,
   page,
-
+  signedAt: new Date(),
   signatureType: signatureType || "drawn",
   signatureText: signatureText || "",
   signatureData: signatureData || "",

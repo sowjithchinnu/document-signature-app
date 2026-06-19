@@ -55,7 +55,13 @@ const generateSignedPDF = async (req, res) => {
 
     // Find the latest signature for this document by update time,
     // so status changes are reflected immediately.
-    const signature = await Signature.findOne({ documentId }).sort({ updatedAt: -1 });
+    const signature = await Signature.findOne({ documentId })
+  .populate("signer", "name")
+  .sort({
+    updatedAt: -1,
+  });
+    const signerName =
+  signature.signer?.name || "Unknown User";
 
     if (!signature) {
       return res.status(404).json({
@@ -163,10 +169,21 @@ const generateSignedPDF = async (req, res) => {
       clampedPdfX,
       clampedPdfY,
     });
-
+    console.log("signedAt from mongo:", signature.signedAt);
     const status = signature.status || "Pending";
+    const signedDate = new Date(
+  signature.signedAt || signature.createdAt
+);
+
+const formattedDate = signedDate.toLocaleString("en-IN", {
+  day: "2-digit",
+  month: "short",
+  year: "numeric",
+  hour: "2-digit",
+  minute: "2-digit",
+});
+
     const hasDrawnSignature =
-      signature.signatureType === "drawn" &&
       signature.signatureData &&
       signature.signatureData.trim() !== "";
 
@@ -216,6 +233,17 @@ const generateSignedPDF = async (req, res) => {
             width: signatureWidth,
             height: signatureHeight,
           });
+          page.drawText(`Signed by: ${signerName}`, {
+  x: clampedImageX,
+  y: clampedImageY - 12,
+  size: 8,
+});
+
+page.drawText(formattedDate, {
+  x: clampedImageX,
+  y: clampedImageY - 24,
+  size: 8,
+});
 
           console.log("[pdfController] Drawn signature image embedded successfully", {
             signatureType: signature.signatureType,
