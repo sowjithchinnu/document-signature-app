@@ -199,6 +199,21 @@ function PDFPreview({
     [dragPos.x, dragPos.y, getPageCanvas]
   );
 
+  const handlePointerDown = useCallback((event) => {
+  const container = containerRef.current;
+
+  if (!container) return;
+
+  const rect = container.getBoundingClientRect();
+
+  setDragOffset({
+    x: event.clientX - rect.left - dragPos.x,
+    y: event.clientY - rect.top - dragPos.y,
+  });
+
+  setIsDragging(true);
+}, [dragPos.x, dragPos.y]);
+
   const handleDocumentLoadSuccess = useCallback(({ numPages: totalPages }) => {
     setNumPages(totalPages);
   }, []);
@@ -442,7 +457,7 @@ function PDFPreview({
         <div
           id="signature-placeholder"
           ref={placeholderRef}
-          onMouseDown={handleMouseDown}
+          onPointerDown={handlePointerDown}
           style={{
             position: "absolute",
             left: `${canvasOffset.left + dragPos.x}px`,
@@ -454,6 +469,7 @@ function PDFPreview({
             cursor: isDragging ? "grabbing" : "grab",
             userSelect: "none",
             zIndex: 10,
+            touchAction: "none",
           }}
         >
           SIGN HERE
